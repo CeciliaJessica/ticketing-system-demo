@@ -1,0 +1,20 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: waiting-room-service
+  namespace: ticketing
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: waiting-room-service
+  template:
+    metadata:
+      labels:
+        app: waiting-room-service
+    spec:
+      containers:
+        - name: waiting-room-service
+          image: waiting-room-service:latest
+          ports:
+            - containerPort: 8082

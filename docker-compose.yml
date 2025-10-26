@@ -1,0 +1,68 @@
+version: "3.9"
+
+services:
+  postgres:
+    image: postgres:16
+    container_name: ticketdb
+    restart: always
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: mypassword
+      POSTGRES_DB: ticketdb
+    ports:
+      - "5432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d ticketdb"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+    networks:
+      - ticketing
+
+  ticket-service:
+    build: ./ticket-service
+    container_name: ticket-service
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      DB_HOST: postgres
+      DB_USER: postgres
+      DB_PASSWORD: mypassword
+      DB_NAME: ticketdb
+    ports:
+      - "8081:8081"
+    networks:
+      - ticketing
+
+  waiting-room-service:
+    build: ./waiting-room-service
+    container_name: waiting-room-service
+    ports:
+      - "8082:8082"
+    environment:
+      TICKET_SERVICE_URL: http://ticket-service:8081
+    networks:
+      - ticketing
+
+  api-gateway:
+    build: ./api-gateway
+    container_name: api-gateway
+    depends_on:
+      - ticket-service
+      - waiting-room-service
+    ports:
+      - "8080:8080"
+    environment:
+      WAITING_ROOM_URL: http://waiting-room-service:8082
+    networks:
+      - ticketing
+
+volumes:
+  pgdata:
+
+networks:
+  ticketing:
+    driver: bridge
