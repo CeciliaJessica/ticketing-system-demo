@@ -16,5 +16,10 @@ spec:
       containers:
         - name: waiting-room-service
           image: waiting-room-service:latest
+          imagePullPolicy: Never  
           ports:
             - containerPort: 8082
+          env:
+            - name: TICKET_SERVICE_URL
+              value: "http://ticket-service:8081"
+
