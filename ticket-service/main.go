@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"fmt"
 	"log"
 	"math"
@@ -9,11 +10,11 @@ import (
 	"time"
 
 	"github.com/gin-gonic/gin"
+	"github.com/redis/go-redis/v9"
 	"gorm.io/driver/postgres"
 	"gorm.io/gorm"
 )
 
-// Ticket model
 type Ticket struct {
 	ID         uint   `gorm:"primaryKey"`
 	SeatNumber string `gorm:"uniqueIndex"`
@@ -23,11 +24,15 @@ type Ticket struct {
 
 var (
 	db  *gorm.DB
-	sem = make(chan struct{}, 100) // limit 100 concurrent buyers
+	sem = make(chan struct{}, 100)
 )
 
+var rdb = redis.NewClient(&redis.Options{
+	Addr: "redis.ticketing.svc.cluster.local:6379",
+})
+
 func main() {
-	// Connect to PostgreSQL
+	// PostgreSQL connection
 	dsn := fmt.Sprintf(
 		"host=%s user=%s password=%s dbname=%s port=5432 sslmode=disable",
 		os.Getenv("DB_HOST"),
@@ -36,7 +41,6 @@ func main() {
 		os.Getenv("DB_NAME"),
 	)
 
-	// Try connecting up to 10 times
 	var database *gorm.DB
 	var err error
 	for i := 1; i <= 10; i++ {
@@ -53,12 +57,11 @@ func main() {
 	db = database
 	log.Println("Connected to PostgreSQL!")
 
-	// Auto migrate table
 	if err := db.AutoMigrate(&Ticket{}); err != nil {
 		log.Fatal("Migration failed:", err)
 	}
 
-	// Seed seats if empty
+	// Seed tickets if empty
 	var count int64
 	db.Model(&Ticket{}).Count(&count)
 	if count == 0 {
@@ -67,7 +70,6 @@ func main() {
 		totalSeats := rows * seatsPerRow
 
 		log.Printf("Seeding %d seats...", totalSeats)
-
 		var tickets []Ticket
 		for r := 0; r < rows; r++ {
 			rowLetter := string('A' + r)
@@ -76,15 +78,14 @@ func main() {
 				tickets = append(tickets, Ticket{SeatNumber: seatNumber, Status: "free"})
 			}
 		}
-
 		db.CreateInBatches(tickets, 1000)
 		log.Println("Seeding complete!")
 	}
 
 	r := gin.Default()
-
 	r.GET("/tickets", buyTicket)
 	r.GET("/active", activeBuyers)
+	r.GET("/stats", getStats)
 
 	r.Run(":8081")
 }
@@ -94,12 +95,26 @@ func buyTicket(c *gin.Context) {
 	case sem <- struct{}{}:
 		defer func() { <-sem }()
 
-		// simulates load
+		ctx := context.Background()
+
+		// increment active buyers counter
+		if err := rdb.Incr(ctx, "active_buyers").Err(); err != nil {
+			log.Printf("Redis INCR failed: %v", err)
+		}
+		// ensure decrement always runs
+		defer func() {
+			if err := rdb.Decr(ctx, "active_buyers").Err(); err != nil {
+				log.Printf("Redis DECR failed: %v", err)
+			}
+		}()
+
+		// simulate heavy computation / delay
 		for i := 0; i < 1e6; i++ {
 			_ = math.Sqrt(float64(i))
 		}
 		time.Sleep(5 * time.Second)
 
+		// try to reserve a free ticket
 		var ticket Ticket
 		tx := db.Where("status = ?", "free").First(&ticket)
 		if tx.Error != nil {
@@ -123,5 +138,32 @@ func buyTicket(c *gin.Context) {
 }
 
 func activeBuyers(c *gin.Context) {
-	c.JSON(http.StatusOK, gin.H{"active_users": len(sem)})
+	ctx := context.Background()
+	active, err := rdb.Get(ctx, "active_buyers").Int()
+	if err == redis.Nil {
+		active = 0
+	} else if err != nil {
+		log.Printf("Redis read error: %v", err)
+		active = 0
+	}
+	c.JSON(http.StatusOK, gin.H{"active_users": active})
+}
+
+func getStats(c *gin.Context) {
+	var soldCount int64
+	db.Model(&Ticket{}).Where("status = ?", "sold").Count(&soldCount)
+
+	ctx := context.Background()
+	active, err := rdb.Get(ctx, "active_buyers").Int()
+	if err == redis.Nil {
+		active = 0
+	} else if err != nil {
+		log.Printf("Redis read error: %v", err)
+		active = 0
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"sold_tickets":  soldCount,
+		"active_buyers": active,
+	})
 }

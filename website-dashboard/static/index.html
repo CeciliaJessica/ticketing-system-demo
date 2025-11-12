@@ -1,0 +1,49 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Ticket Dashboard</title>
+  <style>
+    body { font-family: sans-serif; text-align: center; background: #f5f5f5; }
+    h1 { color: #0078d7; }
+    .stats { display: flex; justify-content: center; gap: 40px; margin-top: 40px; }
+    .card { background: white; border-radius: 10px; box-shadow: 0 2px 6px rgba(0,0,0,0.1); padding: 20px; width: 150px; }
+    .label { font-size: 14px; color: #666; }
+    .value { font-size: 30px; font-weight: bold; margin-top: 10px; }
+  </style>
+</head>
+<body>
+  <h1>🎟 Ticket Dashboard</h1>
+
+  <div class="stats">
+    <div class="card">
+      <div class="label">Active Buyers</div>
+      <div id="active_buyers" class="value">-</div>
+    </div>
+    <div class="card">
+      <div class="label">Waiting Users</div>
+      <div id="waiting_users" class="value">-</div>
+    </div>
+    <div class="card">
+      <div class="label">Sold Tickets</div>
+      <div id="sold_tickets" class="value">-</div>
+    </div>
+  </div>
+
+  <script>
+    async function refresh() {
+      try {
+        const res = await fetch('http://localhost:8085/dashboard');
+        const data = await res.json();
+        document.getElementById('active_buyers').textContent = data.active_buyers ?? '-';
+        document.getElementById('waiting_users').textContent = data.waiting_users ?? '-';
+        document.getElementById('sold_tickets').textContent = data.sold_tickets ?? '-';
+      } catch (e) {
+        console.error(e);
+      }
+    }
+    setInterval(refresh, 2000);
+    refresh();
+  </script>
+</body>
+</html>

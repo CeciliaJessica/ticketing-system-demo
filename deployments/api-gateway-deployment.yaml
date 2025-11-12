@@ -23,3 +23,6 @@ spec:
         env:
         - name: WAITING_ROOM_URL
           value: "http://waiting-room-service:8082"
+        - name: DASHBOARD_SERVICE_URL
+          value: "http://dashboard-service:8083"
+        
