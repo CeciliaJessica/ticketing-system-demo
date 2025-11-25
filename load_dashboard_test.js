@@ -37,6 +37,6 @@ function requestWithRetry(url, maxRetries = 3, baseWait = 1) {
 }
 
 export default function () {
-  const res = requestWithRetry('http://localhost:8085/buy', 3, 1);
+  const res = requestWithRetry('http://172.16.2.19:30080/buy', 3, 1);
   sleep(1);
 }
