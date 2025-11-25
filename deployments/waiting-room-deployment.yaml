@@ -15,8 +15,8 @@ spec:
     spec:
       containers:
         - name: waiting-room-service
-          image: waiting-room-service:latest
-          imagePullPolicy: Never  
+          image: cecilia08/waiting-room-service:latest
+          imagePullPolicy: Always  
           ports:
             - containerPort: 8082
           env:

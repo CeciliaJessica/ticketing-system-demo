@@ -16,8 +16,8 @@ spec:
     spec:
       containers:
       - name: api-gateway
-        image: api-gateway:latest
-        imagePullPolicy: Never
+        image: cecilia08/api-gateway:latest
+        imagePullPolicy: Always
         ports:
         - containerPort: 8080
         env:

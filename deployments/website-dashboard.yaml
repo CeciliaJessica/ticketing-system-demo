@@ -15,8 +15,8 @@ spec:
     spec:
       containers:
         - name: website-dashboard
-          image: website-dashboard:latest
-          imagePullPolicy: Never
+          image: cecilia08/website-dashboard:latest
+          imagePullPolicy: Always
           ports:
             - containerPort: 8083
 ---

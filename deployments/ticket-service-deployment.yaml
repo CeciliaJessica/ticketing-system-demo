@@ -15,8 +15,8 @@ spec:
     spec:
       containers:
         - name: ticket-service
-          image: ticket-service:latest
-          imagePullPolicy: Never
+          image: cecilia08/ticket-service:latest
+          imagePullPolicy: Always
           ports:
             - containerPort: 8081
           env:

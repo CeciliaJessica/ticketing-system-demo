@@ -15,8 +15,8 @@ spec:
     spec:
       containers:
         - name: dashboard-service
-          image: dashboard-service:latest
-          imagePullPolicy: Never
+          image: cecilia08/dashboard-service:latest
+          imagePullPolicy: Always
           ports:
             - containerPort: 8083
           env:
