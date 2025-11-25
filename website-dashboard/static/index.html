@@ -33,7 +33,7 @@
   <script>
     async function refresh() {
       try {
-        const res = await fetch('http://localhost:8085/dashboard');
+        const res = await fetch('http://dashboard-service:8083/dashboard');
         const data = await res.json();
         document.getElementById('active_buyers').textContent = data.active_buyers ?? '-';
         document.getElementById('waiting_users').textContent = data.waiting_users ?? '-';
