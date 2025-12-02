@@ -34,8 +34,9 @@ var rdb = redis.NewClient(&redis.Options{
 func main() {
 	// PostgreSQL connection
 	cockroachURL := fmt.Sprintf(
-		"postgresql://root@%s:26257/%s?sslmode=disable",
-		os.Getenv("DB_HOST"),
+		"postgresql://%s:%s@cockroachdb-client.ticketing.svc.cluster.local:26257/%s?sslmode=disable",
+		os.Getenv("DB_USER"),
+		os.Getenv("DB_PASSWORD"),
 		os.Getenv("DB_NAME"),
 	)
 
