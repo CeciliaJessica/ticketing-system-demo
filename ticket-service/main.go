@@ -16,9 +16,9 @@ import (
 )
 
 type Ticket struct {
-	ID         uint   `gorm:"primaryKey"`
+	ID         uint64 `gorm:"primaryKey"`
 	SeatNumber string `gorm:"uniqueIndex"`
-	Status     string // free, reserved, sold
+	Status     string
 	UserEmail  string
 }
 
@@ -33,29 +33,30 @@ var rdb = redis.NewClient(&redis.Options{
 
 func main() {
 	// PostgreSQL connection
-	dsn := fmt.Sprintf(
-		"host=%s user=%s password=%s dbname=%s port=5432 sslmode=disable",
+	cockroachURL := fmt.Sprintf(
+		"postgresql://root@%s:26257/%s?sslmode=disable",
 		os.Getenv("DB_HOST"),
-		os.Getenv("DB_USER"),
-		os.Getenv("DB_PASSWORD"),
 		os.Getenv("DB_NAME"),
 	)
 
 	var database *gorm.DB
 	var err error
+
 	for i := 1; i <= 10; i++ {
-		database, err = gorm.Open(postgres.Open(dsn), &gorm.Config{})
+		database, err = gorm.Open(postgres.Open(cockroachURL), &gorm.Config{})
 		if err == nil {
 			break
 		}
-		log.Printf("Postgres not ready (attempt %d/10): %v", i, err)
+		log.Printf("CockroachDB not ready (attempt %d/10): %v", i, err)
 		time.Sleep(5 * time.Second)
 	}
+
 	if err != nil {
-		log.Fatal("Failed to connect to PostgreSQL after retries:", err)
+		log.Fatal("Failed to connect to CockroachDB after retries:", err)
 	}
+
 	db = database
-	log.Println("Connected to PostgreSQL!")
+	log.Println("Connected to CockroachDB!")
 
 	if err := db.AutoMigrate(&Ticket{}); err != nil {
 		log.Fatal("Migration failed:", err)
@@ -78,7 +79,7 @@ func main() {
 				tickets = append(tickets, Ticket{SeatNumber: seatNumber, Status: "free"})
 			}
 		}
-		db.CreateInBatches(tickets, 1000)
+		db.CreateInBatches(tickets, 500)
 		log.Println("Seeding complete!")
 	}
 
