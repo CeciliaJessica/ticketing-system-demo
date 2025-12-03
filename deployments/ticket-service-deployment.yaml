@@ -14,27 +14,19 @@ spec:
         app: ticket-service
     spec:
       initContainers:
-        - name: wait-for-db
-          image: cockroachdb/cockroach:v23.2.0
-          command:
-            - sh
-            - -c
-            - |
-              echo "Waiting for ticketdb..."
-              
-              # Wait until CockroachDB accepts SQL
-              until cockroach sql --insecure --host=cockroachdb-client -e "SELECT 1;" >/dev/null 2>&1; do
-                echo "CockroachDB not ready..."
-                sleep 2
-              done
+      - name: wait-for-db
+        image: busybox
+        command:
+          - sh
+          - -c
+          - |
+            echo "Waiting for CockroachDB SQL port..."
+            until nc -z cockroachdb-client 26257; do
+              echo "CockroachDB SQL not ready..."
+              sleep 2
+            done
+            echo "CockroachDB SQL is ready!"
 
-              # Wait until `ticketdb` exists
-              until cockroach sql --insecure --host=cockroachdb-client -e "SHOW DATABASES;" | grep -w ticketdb >/dev/null 2>&1; do
-                echo "ticketdb not created yet..."
-                sleep 2
-              done
-
-              echo "ticketdb exists! Starting service."
 
       containers:
         - name: ticket-service
