@@ -21,11 +21,20 @@ spec:
             - -c
             - |
               echo "Waiting for ticketdb..."
-              until cockroach sql --insecure --host=cockroachdb-client -e "SHOW DATABASES;" | grep ticketdb; do
-                echo "DB not created yet..."
+              
+              # Wait until CockroachDB accepts SQL
+              until cockroach sql --insecure --host=cockroachdb-client -e "SELECT 1;" >/dev/null 2>&1; do
+                echo "CockroachDB not ready..."
                 sleep 2
               done
-              echo "ticketdb exists!"
+
+              # Wait until `ticketdb` exists
+              until cockroach sql --insecure --host=cockroachdb-client -e "SHOW DATABASES;" | grep -w ticketdb >/dev/null 2>&1; do
+                echo "ticketdb not created yet..."
+                sleep 2
+              done
+
+              echo "ticketdb exists! Starting service."
 
       containers:
         - name: ticket-service
@@ -44,5 +53,4 @@ spec:
               value: "ticketdb"
             - name: DB_PORT
               value: "26257"
-
 
