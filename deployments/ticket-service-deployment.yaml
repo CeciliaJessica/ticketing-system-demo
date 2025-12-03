@@ -20,7 +20,6 @@ spec:
           ports:
             - containerPort: 8081
           env:
-            env:
             - name: DB_USER
               value: "root"
             - name: DB_PASSWORD
