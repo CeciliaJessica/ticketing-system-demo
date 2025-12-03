@@ -43,12 +43,15 @@ func main() {
 
 	var err error
 
-	// Try for 3 minutes
-	for i := 1; i <= 60; i++ {
+	// Try connecting for 3 minutes
+	connected := false
+	for i := 1; i <= 120; i++ {
 		db, err = gorm.Open(postgres.Open(cockroachURL), &gorm.Config{})
 		if err == nil {
-			if dbExec, e := db.DB(); e == nil && dbExec.Ping() == nil {
+			sql, pingErr := db.DB()
+			if pingErr == nil && sql.Ping() == nil {
 				log.Println("Connected to CockroachDB!")
+				connected = true
 				break
 			}
 		}
@@ -56,36 +59,41 @@ func main() {
 		time.Sleep(3 * time.Second)
 	}
 
-	if err != nil {
-		// ❗ DO NOT EXIT — start API anyway
-		log.Printf("WARNING: DB NOT READY AFTER RETRIES: %v", err)
-		log.Println("Starting API WITHOUT DB — will error on ticket actions.")
+	if !connected {
+		log.Println("WARNING: Database not reachable. API starting without DB.")
 	} else {
-		// Database connected → run migrations
+		// AutoMigrate only when DB is real
 		if err := db.AutoMigrate(&Ticket{}); err != nil {
-			log.Printf("Migration warning: %v", err)
+			log.Printf("Migration failed: %v", err)
 		}
-	}
 
-	// Seed tickets if empty
-	var count int64
-	db.Model(&Ticket{}).Count(&count)
-	if count == 0 {
-		rows := 50
-		seatsPerRow := 1000
-		totalSeats := rows * seatsPerRow
+		// Seeding only if DB is real
+		var count int64
+		db.Model(&Ticket{}).Count(&count)
+		if count == 0 {
+			log.Println("Seeding 50,000 seats…")
 
-		log.Printf("Seeding %d seats...", totalSeats)
-		var tickets []Ticket
-		for r := 0; r < rows; r++ {
-			rowLetter := string('A' + r)
-			for s := 1; s <= seatsPerRow; s++ {
-				seatNumber := fmt.Sprintf("%d%s", s, rowLetter)
-				tickets = append(tickets, Ticket{SeatNumber: seatNumber, Status: "free"})
+			// Seed tickets if empty
+			var count int64
+			db.Model(&Ticket{}).Count(&count)
+			if count == 0 {
+				rows := 50
+				seatsPerRow := 1000
+				totalSeats := rows * seatsPerRow
+
+				log.Printf("Seeding %d seats...", totalSeats)
+				var tickets []Ticket
+				for r := 0; r < rows; r++ {
+					rowLetter := string('A' + r)
+					for s := 1; s <= seatsPerRow; s++ {
+						seatNumber := fmt.Sprintf("%d%s", s, rowLetter)
+						tickets = append(tickets, Ticket{SeatNumber: seatNumber, Status: "free"})
+					}
+				}
+				db.CreateInBatches(tickets, 500)
+				log.Println("Seeding complete!")
 			}
 		}
-		db.CreateInBatches(tickets, 500)
-		log.Println("Seeding complete!")
 	}
 
 	// Start API
