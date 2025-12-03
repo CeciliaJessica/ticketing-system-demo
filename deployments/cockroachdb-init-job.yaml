@@ -4,6 +4,7 @@ metadata:
   name: cockroachdb-init
   namespace: ticketing
 spec:
+  backoffLimit: 10
   template:
     spec:
       restartPolicy: OnFailure
@@ -11,25 +12,27 @@ spec:
         - name: cockroachdb-init
           image: cockroachdb/cockroach:v23.2.0
           command:
-            - "sh"
-            - "-c"
+            - sh
+            - -c
             - |
-              echo "Waiting for CockroachDB..."
-              sleep 10
+              echo "Waiting for CockroachDB SQL port..."
+              until nc -z cockroachdb-client 26257; do
+                echo "CockroachDB not ready, retrying..."
+                sleep 3
+              done
 
-              cockroach sql \
-                --insecure \
-                --host=cockroachdb-client \
-                -e "CREATE DATABASE IF NOT EXISTS ticketdb;"
-              
-              cockroach sql \
-                --insecure \
-                --host=cockroachdb-client \
-                -e \"CREATE USER IF NOT EXISTS ticketuser WITH PASSWORD 'mypassword';\"
+              echo "CockroachDB is ready! Initializing..."
 
-              cockroach sql \
-                --insecure \
-                --host=cockroachdb-client \
-                -e \"GRANT ALL ON DATABASE ticketdb TO ticketuser;\"
+              cockroach sql --insecure --host=cockroachdb-client -e "
+                CREATE DATABASE IF NOT EXISTS ticketdb;
+              "
 
-              echo \"Initialization complete.\"
+              cockroach sql --insecure --host=cockroachdb-client -e "
+                CREATE USER IF NOT EXISTS ticketuser WITH PASSWORD 'mypassword';
+              "
+
+              cockroach sql --insecure --host=cockroachdb-client -e "
+                GRANT ALL ON DATABASE ticketdb TO ticketuser;
+              "
+
+              echo "Initialization complete."
