@@ -41,27 +41,30 @@ func main() {
 		os.Getenv("DB_NAME"),
 	)
 
-	var database *gorm.DB
 	var err error
 
-	for i := 1; i <= 10; i++ {
-		database, err = gorm.Open(postgres.Open(cockroachURL), &gorm.Config{})
+	// Try for 3 minutes
+	for i := 1; i <= 60; i++ {
+		db, err = gorm.Open(postgres.Open(cockroachURL), &gorm.Config{})
 		if err == nil {
-			break
+			if dbExec, e := db.DB(); e == nil && dbExec.Ping() == nil {
+				log.Println("Connected to CockroachDB!")
+				break
+			}
 		}
-		log.Printf("CockroachDB not ready (attempt %d/10): %v", i, err)
-		time.Sleep(5 * time.Second)
+		log.Printf("CockroachDB not ready (attempt %d/60): %v", i, err)
+		time.Sleep(3 * time.Second)
 	}
 
 	if err != nil {
-		log.Fatal("Failed to connect to CockroachDB after retries:", err)
-	}
-
-	db = database
-	log.Println("Connected to CockroachDB!")
-
-	if err := db.AutoMigrate(&Ticket{}); err != nil {
-		log.Fatal("Migration failed:", err)
+		// ❗ DO NOT EXIT — start API anyway
+		log.Printf("WARNING: DB NOT READY AFTER RETRIES: %v", err)
+		log.Println("Starting API WITHOUT DB — will error on ticket actions.")
+	} else {
+		// Database connected → run migrations
+		if err := db.AutoMigrate(&Ticket{}); err != nil {
+			log.Printf("Migration warning: %v", err)
+		}
 	}
 
 	// Seed tickets if empty
@@ -85,11 +88,13 @@ func main() {
 		log.Println("Seeding complete!")
 	}
 
+	// Start API
 	r := gin.Default()
 	r.GET("/tickets", buyTicket)
 	r.GET("/active", activeBuyers)
 	r.GET("/stats", getStats)
 
+	log.Println("Ticket service starting on port 8081...")
 	r.Run(":8081")
 }
 
