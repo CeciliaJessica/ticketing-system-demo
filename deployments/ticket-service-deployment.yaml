@@ -20,12 +20,13 @@ spec:
           ports:
             - containerPort: 8081
           env:
+            env:
+            - name: DB_USER
+              value: "root"
+            - name: DB_PASSWORD
+              value: ""
             - name: DB_HOST
               value: "cockroachdb-client.ticketing.svc.cluster.local"
-            - name: DB_USER
-              value: "ticketuser"
-            - name: DB_PASSWORD
-              value: "mypassword"
             - name: DB_NAME
               value: "ticketdb"
             - name: DB_PORT
