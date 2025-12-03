@@ -43,71 +43,68 @@ func main() {
 
 	var err error
 
-	log.Println("Waiting for CockroachDB AND ticketdb to be ready...")
-
-	//  Loop FOREVER until ticketdb exists
-	for {
+	// Try connecting for 3 minutes
+	connected := false
+	for i := 1; i <= 500; i++ {
 		db, err = gorm.Open(postgres.Open(cockroachURL), &gorm.Config{})
 		if err == nil {
-			sqlDB, pingErr := db.DB()
-			if pingErr == nil && sqlDB.Ping() == nil {
+			sql, pingErr := db.DB()
+			if pingErr == nil && sql.Ping() == nil {
+				log.Println("Connected to CockroachDB!")
+				connected = true
+				break
+			}
+		}
+		log.Printf("CockroachDB not ready (attempt %d/60): %v", i, err)
+		time.Sleep(3 * time.Second)
+	}
 
-				// Check if the database ticketdb actually exists
-				var name string
-				checkErr := db.Raw(`
-				SELECT database_name 
-				FROM [SHOW DATABASES] 
-				WHERE database_name = 'ticketdb';
-			`).Scan(&name).Error
+	if !connected {
+		log.Println("WARNING: Database not reachable. API starting without DB.")
+	} else {
 
-				if checkErr == nil && name == "ticketdb" {
-					log.Println("CockroachDB is reachable AND ticketdb exists!")
-					break
+		// Retry AutoMigrate forever until it works
+		for {
+			log.Println("Running AutoMigrate...")
+
+			if err := db.AutoMigrate(&Ticket{}); err != nil {
+				log.Printf("AutoMigrate failed: %v", err)
+				log.Println("Retrying AutoMigrate in 3 seconds...")
+				time.Sleep(3 * time.Second)
+				continue
+			}
+
+			log.Println("AutoMigrate successful!")
+			break
+		}
+
+		// Seeding only if DB is real
+		var count int64
+		db.Model(&Ticket{}).Count(&count)
+		if count == 0 {
+			log.Println("Seeding 50,000 seats…")
+
+			// Seed tickets if empty
+			var count int64
+			db.Model(&Ticket{}).Count(&count)
+			if count == 0 {
+				rows := 50
+				seatsPerRow := 1000
+				totalSeats := rows * seatsPerRow
+
+				log.Printf("Seeding %d seats...", totalSeats)
+				var tickets []Ticket
+				for r := 0; r < rows; r++ {
+					rowLetter := string('A' + r)
+					for s := 1; s <= seatsPerRow; s++ {
+						seatNumber := fmt.Sprintf("%d%s", s, rowLetter)
+						tickets = append(tickets, Ticket{SeatNumber: seatNumber, Status: "free"})
+					}
 				}
-
-				log.Println("ticketdb NOT found yet… retrying...")
+				db.CreateInBatches(tickets, 500)
+				log.Println("Seeding complete!")
 			}
 		}
-
-		log.Println("CockroachDB not ready or DB missing… retrying in 2s...")
-		time.Sleep(2 * time.Second)
-	}
-
-	// ----------------------------
-	// DATABASE EXISTS → MIGRATIONS
-	// ----------------------------
-	log.Println("Running AutoMigrate...")
-	if err := db.AutoMigrate(&Ticket{}); err != nil {
-		log.Printf("Migration failed: %v", err)
-	}
-
-	// ----------------------------
-	// SEEDING
-	// ----------------------------
-	var count int64
-	db.Model(&Ticket{}).Count(&count)
-	if count == 0 {
-		log.Println("Seeding 50,000 seats…")
-
-		rows := 50
-		seatsPerRow := 1000
-		totalSeats := rows * seatsPerRow
-		log.Printf("Total seats: %d", totalSeats)
-
-		var tickets []Ticket
-		for r := 0; r < rows; r++ {
-			rowLetter := string('A' + r)
-			for s := 1; s <= seatsPerRow; s++ {
-				seatNumber := fmt.Sprintf("%d%s", s, rowLetter)
-				tickets = append(tickets, Ticket{
-					SeatNumber: seatNumber,
-					Status:     "free",
-				})
-			}
-		}
-
-		db.CreateInBatches(tickets, 500)
-		log.Println("Seeding complete!")
 	}
 
 	// Start API
