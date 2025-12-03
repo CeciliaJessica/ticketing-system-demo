@@ -13,21 +13,6 @@ spec:
       labels:
         app: ticket-service
     spec:
-      initContainers:
-      - name: wait-for-db
-        image: alpine:3.18
-        command:
-          - sh
-          - -c
-          - |
-            apk add --no-cache netcat-openbsd
-            echo "Waiting for CockroachDB SQL port..."
-            until nc -z cockroachdb-client 26257; do
-              echo "CockroachDB SQL not ready..."
-              sleep 2
-            done
-            echo "CockroachDB SQL is ready!"
-
       containers:
         - name: ticket-service
           image: cecilia08/ticket-service:v11
