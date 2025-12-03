@@ -37,6 +37,9 @@ spec:
           args:
             - "start"
             - "--insecure"
+            - "--listen-addr=0.0.0.0"
+            - "--sql-addr=0.0.0.0:26257"
+            - "--http-addr=0.0.0.0:8080"
             - "--advertise-addr=$(HOSTNAME).cockroachdb.ticketing.svc.cluster.local"
             - "--join=cockroachdb-0.cockroachdb.ticketing.svc.cluster.local,cockroachdb-1.cockroachdb.ticketing.svc.cluster.local,cockroachdb-2.cockroachdb.ticketing.svc.cluster.local"
           ports:
@@ -51,7 +54,7 @@ spec:
     - metadata:
         name: cockroachdb-data
       spec:
-        accessModes: [ "ReadWriteOnce" ]
+        accessModes: ["ReadWriteOnce"]
         resources:
           requests:
             storage: 5Gi
