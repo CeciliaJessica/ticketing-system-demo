@@ -21,10 +21,7 @@ spec:
                 sleep 2
               done
 
-              echo "CockroachDB ready — running initialization"
-
+              echo "CockroachDB ready — initializing…"
               cockroach sql --insecure --host=cockroachdb-client -e "CREATE DATABASE IF NOT EXISTS ticketdb;"
-              cockroach sql --insecure --host=cockroachdb-client -e "CREATE USER IF NOT EXISTS ticketuser WITH PASSWORD 'mypassword';"
-              cockroach sql --insecure --host=cockroachdb-client -e "GRANT ALL ON DATABASE ticketdb TO ticketuser;"
-
               echo "Initialization complete!"
+
