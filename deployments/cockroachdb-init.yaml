@@ -15,19 +15,21 @@ spec:
             - sh
             - -c
             - |
-              echo "Waiting for node 0 SQL..."
+              echo "Waiting for CockroachDB SQL to be ready..."
 
-              until cockroach sql --insecure \
-                --host=cockroachdb-0.cockroachdb.ticketing.svc.cluster.local \
-                -e "SELECT 1;" >/dev/null 2>&1; do
-                echo "Node 0 not ready..."
+              # Wait until SQL responds
+              until cockroach sql --insecure --host=cockroachdb-client -e "SELECT 1;" >/dev/null 2>&1; do
+                echo "CockroachDB not ready..."
                 sleep 2
               done
 
+              echo "CockroachDB is ready."
               echo "Creating database ticketdb..."
-              cockroach sql --insecure \
-                --host=cockroachdb-0.cockroachdb.ticketing.svc.cluster.local \
-                -e "CREATE DATABASE IF NOT EXISTS ticketdb;"
 
-              echo "Init complete!"
+              cockroach sql --insecure --host=cockroachdb-client -e "
+                CREATE DATABASE IF NOT EXISTS ticketdb;
+              "
+
+              echo "Initialization complete."
+
 

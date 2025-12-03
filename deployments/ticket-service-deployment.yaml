@@ -13,6 +13,20 @@ spec:
       labels:
         app: ticket-service
     spec:
+      initContainers:
+        - name: wait-for-db
+          image: cockroachdb/cockroach:v23.2.0
+          command:
+            - sh
+            - -c
+            - |
+              echo "Waiting for ticketdb..."
+              until cockroach sql --insecure --host=cockroachdb-client -e "SHOW DATABASES;" | grep ticketdb; do
+                echo "DB not created yet..."
+                sleep 2
+              done
+              echo "ticketdb exists!"
+
       containers:
         - name: ticket-service
           image: cecilia08/ticket-service:v8
@@ -29,4 +43,6 @@ spec:
             - name: DB_NAME
               value: "ticketdb"
             - name: DB_PORT
-              value: "26257" 
+              value: "26257"
+
+
