@@ -4,32 +4,36 @@ metadata:
   name: cockroachdb-init
   namespace: ticketing
 spec:
-  backoffLimit: 3
+  # allow unlimited retries
+  backoffLimit: 0
   template:
     spec:
-      restartPolicy: OnFailure
+      restartPolicy: Never   # Job keeps running forever
       containers:
-        - name: cockroachdb-init
-          image: cockroachdb/cockroach:v23.2.0
-          command:
-            - sh
-            - -c
-            - |
-              echo "Waiting for CockroachDB SQL to be ready..."
+      - name: cockroachdb-init
+        image: cockroachdb/cockroach:v23.2.0
+        command:
+        - sh
+        - -c
+        - |
+          echo "Waiting for CockroachDB SQL to be fully ready..."
 
-              # Wait until SQL responds
-              until cockroach sql --insecure --host=cockroachdb-client -e "SELECT 1;" >/dev/null 2>&1; do
-                echo "CockroachDB not ready..."
-                sleep 2
-              done
+          # Infinite retry
+          while true; do
+            if cockroach node status --insecure --host=cockroachdb-client >/dev/null 2>&1; then
+              break
+            fi
+            echo "CockroachDB not ready..."
+            sleep 2
+          done
 
-              echo "CockroachDB is ready."
-              echo "Creating database ticketdb..."
+          echo "CockroachDB is ready!"
+          echo "Creating ticketdb..."
 
-              cockroach sql --insecure --host=cockroachdb-client -e "
-                CREATE DATABASE IF NOT EXISTS ticketdb;
-              "
+          cockroach sql --insecure --host=cockroachdb-client -e \
+            "CREATE DATABASE IF NOT EXISTS ticketdb;"
 
-              echo "Initialization complete."
+          echo "Initialization complete!"
+
 
 
