@@ -4,7 +4,7 @@ metadata:
   name: cockroachdb-init
   namespace: ticketing
 spec:
-  backoffLimit: 5
+  backoffLimit: 3
   template:
     spec:
       restartPolicy: OnFailure
@@ -15,13 +15,19 @@ spec:
             - sh
             - -c
             - |
-              echo "Waiting for CockroachDB readiness..."
-              until cockroach sql --insecure --host=cockroachdb-client -e "SELECT 1;" >/dev/null 2>&1; do
-                echo "Not ready yet..."
+              echo "Waiting for node 0 SQL..."
+
+              until cockroach sql --insecure \
+                --host=cockroachdb-0.cockroachdb.ticketing.svc.cluster.local \
+                -e "SELECT 1;" >/dev/null 2>&1; do
+                echo "Node 0 not ready..."
                 sleep 2
               done
 
-              echo "CockroachDB ready — initializing…"
-              cockroach sql --insecure --host=cockroachdb-client -e "CREATE DATABASE IF NOT EXISTS ticketdb;"
-              echo "Initialization complete!"
+              echo "Creating database ticketdb..."
+              cockroach sql --insecure \
+                --host=cockroachdb-0.cockroachdb.ticketing.svc.cluster.local \
+                -e "CREATE DATABASE IF NOT EXISTS ticketdb;"
+
+              echo "Init complete!"
 
