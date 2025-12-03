@@ -3,17 +3,17 @@ kind: Service
 metadata:
   name: cockroachdb
   namespace: ticketing
-  labels:
-    app: cockroachdb
 spec:
-  ports:
-    - port: 26257
-      name: sql
-    - port: 8080
-      name: http
-  clusterIP: None  
+  clusterIP: None
   selector:
     app: cockroachdb
+  ports:
+    - name: sql
+      port: 26257
+      targetPort: 26257
+    - name: http
+      port: 8080
+      targetPort: 8080
 ---
 apiVersion: apps/v1
 kind: StatefulSet
@@ -31,22 +31,21 @@ spec:
       labels:
         app: cockroachdb
     spec:
+      hostname: cockroachdb
+      subdomain: cockroachdb
       containers:
         - name: cockroachdb
           image: cockroachdb/cockroach:v23.2.0
           args:
             - "start"
             - "--insecure"
-            - "--listen-addr=0.0.0.0"
-            - "--sql-addr=0.0.0.0:26257"
-            - "--http-addr=0.0.0.0:8080"
             - "--advertise-addr=$(HOSTNAME).cockroachdb.ticketing.svc.cluster.local"
             - "--join=cockroachdb-0.cockroachdb.ticketing.svc.cluster.local,cockroachdb-1.cockroachdb.ticketing.svc.cluster.local,cockroachdb-2.cockroachdb.ticketing.svc.cluster.local"
           ports:
-            - containerPort: 26257
-              name: sql
-            - containerPort: 8080
-              name: http
+            - name: sql
+              containerPort: 26257
+            - name: http
+              containerPort: 8080
           volumeMounts:
             - name: cockroachdb-data
               mountPath: /cockroach/cockroach-data
@@ -54,7 +53,8 @@ spec:
     - metadata:
         name: cockroachdb-data
       spec:
-        accessModes: ["ReadWriteOnce"]
+        accessModes:
+          - ReadWriteOnce
         resources:
           requests:
             storage: 5Gi
