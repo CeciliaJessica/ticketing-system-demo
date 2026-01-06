@@ -4,6 +4,7 @@ import (
 	"context"
 	"net/http"
 	"os"
+	"time"
 
 	"github.com/gin-gonic/gin"
 	"github.com/redis/go-redis/v9"
@@ -21,6 +22,16 @@ const MAX_ACTIVE_BUYERS = 500
 func main() {
 	ticketServiceURL := os.Getenv("TICKET_SERVICE_URL")
 
+	//  Reusable HTTP client with timeouts + pooling
+	httpClient := &http.Client{
+		Timeout: 15 * time.Second,
+		Transport: &http.Transport{
+			MaxIdleConns:        200,
+			MaxIdleConnsPerHost: 200,
+			IdleConnTimeout:     90 * time.Second,
+		},
+	}
+
 	if err := rdb.Ping(ctx).Err(); err != nil {
 		panic("Redis connection failed: " + err.Error())
 	}
@@ -37,12 +48,11 @@ func main() {
 		}
 
 		if active >= MAX_ACTIVE_BUYERS {
-			// too many active buyers
 			if err := rdb.Incr(ctx, "waiting_users").Err(); err != nil {
 				c.JSON(500, gin.H{"error": "failed to track waiting user"})
 				return
 			}
-			defer rdb.Decr(ctx, "waiting_users")
+			defer func() { _ = rdb.Decr(ctx, "waiting_users").Err() }()
 
 			c.JSON(429, gin.H{
 				"status":  "waiting",
@@ -52,13 +62,13 @@ func main() {
 		}
 
 		// forward to ticket service
-		resp, err := http.Get(ticketServiceURL + "/tickets")
+		resp, err := httpClient.Get(ticketServiceURL + "/tickets")
 		if err != nil {
 			c.JSON(500, gin.H{"error": "could not reach ticket service"})
 			return
 		}
 		defer resp.Body.Close()
-		c.DataFromReader(resp.StatusCode, resp.ContentLength, "application/json", resp.Body, nil)
+		c.DataFromReader(resp.StatusCode, resp.ContentLength, resp.Header.Get("Content-Type"), resp.Body, nil)
 	})
 
 	r.GET("/stats", func(c *gin.Context) {
