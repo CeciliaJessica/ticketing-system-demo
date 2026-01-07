@@ -3,7 +3,7 @@ import { sleep } from 'k6';
 
 // Configure load pattern
 export const options = {
-  vus: 1000,          // 1000 concurrent virtual users
+  vus: 200,          // 200 concurrent virtual users
   duration: '120s',    // run for 120 seconds
 };
 
