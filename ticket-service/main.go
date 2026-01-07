@@ -128,6 +128,19 @@ func buyTicket(c *gin.Context) {
 	case sem <- struct{}{}:
 		defer func() { <-sem }()
 
+		ctx := context.Background()
+
+		// increment active buyers counter
+		if err := rdb.Incr(ctx, "active_buyers").Err(); err != nil {
+			log.Printf("Redis INCR failed: %v", err)
+		}
+		// ensure decrement always runs
+		defer func() {
+			if err := rdb.Decr(ctx, "active_buyers").Err(); err != nil {
+				log.Printf("Redis DECR failed: %v", err)
+			}
+		}()
+
 		// simulate heavy computation / delay
 		for i := 0; i < 1e6; i++ {
 			_ = math.Sqrt(float64(i))

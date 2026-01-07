@@ -4,7 +4,6 @@ import (
 	"encoding/json"
 	"net/http"
 	"os"
-	"time"
 
 	"github.com/gin-gonic/gin"
 )
@@ -13,21 +12,11 @@ func main() {
 	ticketServiceURL := os.Getenv("TICKET_SERVICE_URL")
 	waitingRoomURL := os.Getenv("WAITING_ROOM_URL")
 
-	// shared client + timeouts
-	httpClient := &http.Client{
-		Timeout: 10 * time.Second,
-		Transport: &http.Transport{
-			MaxIdleConns:        200,
-			MaxIdleConnsPerHost: 200,
-			IdleConnTimeout:     90 * time.Second,
-		},
-	}
-
 	r := gin.Default()
 
 	r.GET("/dashboard", func(c *gin.Context) {
-		// ---- ticket-service stats (only sold tickets now) ----
-		ticketResp, err := httpClient.Get(ticketServiceURL + "/stats")
+		// fetch ticket-service stats
+		ticketResp, err := http.Get(ticketServiceURL + "/stats")
 		if err != nil {
 			c.JSON(500, gin.H{"error": "ticket service unavailable"})
 			return
@@ -35,15 +24,13 @@ func main() {
 		defer ticketResp.Body.Close()
 
 		var ticketStats struct {
-			SoldTickets int `json:"sold_tickets"`
+			SoldTickets  int `json:"sold_tickets"`
+			ActiveBuyers int `json:"active_buyers"`
 		}
-		if err := json.NewDecoder(ticketResp.Body).Decode(&ticketStats); err != nil {
-			c.JSON(500, gin.H{"error": "failed to decode ticket stats"})
-			return
-		}
+		json.NewDecoder(ticketResp.Body).Decode(&ticketStats)
 
-		// ---- waiting-room stats (active + waiting) ----
-		waitResp, err := httpClient.Get(waitingRoomURL + "/stats")
+		// fetch waiting-room stats
+		waitResp, err := http.Get(waitingRoomURL + "/stats")
 		if err != nil {
 			c.JSON(500, gin.H{"error": "waiting room unavailable"})
 			return
@@ -52,17 +39,13 @@ func main() {
 
 		var waitingStats struct {
 			WaitingUsers int `json:"waiting_users"`
-			ActiveBuyers int `json:"active_buyers"`
 		}
-		if err := json.NewDecoder(waitResp.Body).Decode(&waitingStats); err != nil {
-			c.JSON(500, gin.H{"error": "failed to decode waiting stats"})
-			return
-		}
+		json.NewDecoder(waitResp.Body).Decode(&waitingStats)
 
-		// ---- merged response ----
+		// merge and send clean response
 		c.JSON(200, gin.H{
 			"sold_tickets":  ticketStats.SoldTickets,
-			"active_buyers": waitingStats.ActiveBuyers,
+			"active_buyers": ticketStats.ActiveBuyers,
 			"waiting_users": waitingStats.WaitingUsers,
 		})
 	})
