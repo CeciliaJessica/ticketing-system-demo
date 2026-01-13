@@ -3,8 +3,8 @@ import { sleep } from 'k6';
 
 // Configure load pattern
 export const options = {
-  vus: 1000,          // 1000 concurrent virtual users
-  duration: '30s',    // run for 30 seconds
+  vus: 200,          // 200 concurrent virtual users
+  duration: '120s',    // run for 120 seconds
 };
 
 // Basic exponential backoff retry function

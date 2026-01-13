@@ -4,7 +4,7 @@ metadata:
   name: ticket-service
   namespace: ticketing
 spec:
-  replicas: 1
+  replicas: 5
   selector:
     matchLabels:
       app: ticket-service
@@ -30,7 +30,7 @@ spec:
 
       containers:
         - name: ticket-service
-          image: cecilia08/ticket-service:v11
+          image: cecilia08/ticket-service:latest
           imagePullPolicy: Always
           ports:
             - containerPort: 8081

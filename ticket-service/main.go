@@ -67,6 +67,12 @@ func main() {
 		for {
 			log.Println("Running AutoMigrate...")
 
+			// If table already exists, skip migration
+			if db.Migrator().HasTable(&Ticket{}) {
+				log.Println("Table 'tickets' already exists, skipping AutoMigrate.")
+				break
+			}
+
 			if err := db.AutoMigrate(&Ticket{}); err != nil {
 				log.Printf("AutoMigrate failed: %v", err)
 				log.Println("Retrying AutoMigrate in 3 seconds...")
